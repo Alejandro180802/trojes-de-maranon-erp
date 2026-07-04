@@ -1,0 +1,35 @@
+# macOS
+.DS_Store
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.idea/
+
+# Logs
+logs/
+*.log
+
+# Frontend
+node_modules/
+dist/
+build/
+.vite/
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Local database
+*.mdf
+*.ldf
+
+# Secrets
+appsettings.Production.json
+appsettings.Local.json
+secrets.json
