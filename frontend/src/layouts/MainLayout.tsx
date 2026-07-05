@@ -9,6 +9,9 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import MenuIcon from '@mui/icons-material/Menu';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import MoveDownIcon from '@mui/icons-material/MoveDown';
+import OutputIcon from '@mui/icons-material/Output';
+import RuleIcon from '@mui/icons-material/Rule';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import SettingsIcon from '@mui/icons-material/Settings';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
@@ -43,6 +46,17 @@ const navGroups = [
       { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
       { label: 'Proyectos', path: '/projects', icon: <AssignmentIcon /> },
       { label: 'Plataformas', path: '/platforms', icon: <LayersIcon /> }
+    ]
+  },
+  {
+    label: 'Inventario',
+    items: [
+      { label: 'Existencias', path: '/inventory/balances', icon: <Inventory2Icon /> },
+      { label: 'Entradas', path: '/inventory/receipts', icon: <MoveDownIcon /> },
+      { label: 'Salidas', path: '/inventory/issues', icon: <OutputIcon /> },
+      { label: 'Ajustes', path: '/inventory/adjustments', icon: <RuleIcon /> },
+      { label: 'Transferencias', path: '/inventory/transfers', icon: <WarehouseIcon /> },
+      { label: 'Movimientos', path: '/inventory/movements', icon: <AssignmentIcon /> }
     ]
   },
   {

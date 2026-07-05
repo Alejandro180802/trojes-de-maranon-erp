@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using TrojesDeMaranon.Application.Common;
+using TrojesDeMaranon.Application.Inventory;
 using TrojesDeMaranon.Application.Projects;
 
 namespace TrojesDeMaranon.Api.Controllers;
@@ -46,6 +47,14 @@ public sealed class PlatformsController(IMediator mediator, ICurrentUserService 
     [HttpPost("{platformId:guid}/estimated-material-consumptions")]
     public async Task<ActionResult<ApiResponse<EstimatedMaterialConsumptionDto>>> CreateEstimatedMaterialConsumption(Guid platformId, UpsertEstimatedMaterialConsumptionRequest request, CancellationToken cancellationToken) =>
         this.ToActionResult(await mediator.Send(new CreateEstimatedMaterialConsumptionCommand(RequireCompanyId(), platformId, request), cancellationToken));
+
+    [HttpGet("{platformId:guid}/actual-material-consumptions")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<ActualMaterialConsumptionDto>>>> ActualMaterialConsumptions(Guid platformId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await mediator.Send(new GetActualMaterialConsumptionsQuery(RequireCompanyId(), platformId), cancellationToken));
+
+    [HttpGet("{platformId:guid}/material-deviations")]
+    public async Task<ActionResult<ApiResponse<IReadOnlyList<MaterialDeviationDto>>>> MaterialDeviations(Guid platformId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await mediator.Send(new GetMaterialDeviationsQuery(RequireCompanyId(), platformId), cancellationToken));
 
     private Guid RequireCompanyId() => currentUser.CompanyId ?? throw new UnauthorizedAccessException("Sesion sin empresa.");
 }

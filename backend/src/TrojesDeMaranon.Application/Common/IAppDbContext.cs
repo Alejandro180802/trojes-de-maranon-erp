@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using TrojesDeMaranon.Domain.Activities;
 using TrojesDeMaranon.Domain.Clients;
 using TrojesDeMaranon.Domain.Companies;
+using TrojesDeMaranon.Domain.Inventory;
 using TrojesDeMaranon.Domain.Materials;
 using TrojesDeMaranon.Domain.Projects;
 using TrojesDeMaranon.Domain.Security;
@@ -28,6 +29,16 @@ public interface IAppDbContext
     DbSet<Platform> Platforms { get; }
     DbSet<PlatformActivity> PlatformActivities { get; }
     DbSet<EstimatedMaterialConsumption> EstimatedMaterialConsumptions { get; }
+    DbSet<MaterialReceipt> MaterialReceipts { get; }
+    DbSet<MaterialReceiptLine> MaterialReceiptLines { get; }
+    DbSet<MaterialIssue> MaterialIssues { get; }
+    DbSet<MaterialIssueLine> MaterialIssueLines { get; }
+    DbSet<InventoryAdjustment> InventoryAdjustments { get; }
+    DbSet<InventoryAdjustmentLine> InventoryAdjustmentLines { get; }
+    DbSet<InventoryTransfer> InventoryTransfers { get; }
+    DbSet<InventoryTransferLine> InventoryTransferLines { get; }
+    DbSet<InventoryMovement> InventoryMovements { get; }
+    DbSet<InventoryBalance> InventoryBalances { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

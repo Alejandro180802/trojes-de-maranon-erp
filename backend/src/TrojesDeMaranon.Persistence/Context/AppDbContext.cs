@@ -6,6 +6,7 @@ using TrojesDeMaranon.Domain.Activities;
 using TrojesDeMaranon.Domain.Clients;
 using TrojesDeMaranon.Domain.Common;
 using TrojesDeMaranon.Domain.Companies;
+using TrojesDeMaranon.Domain.Inventory;
 using TrojesDeMaranon.Domain.Materials;
 using TrojesDeMaranon.Domain.Projects;
 using TrojesDeMaranon.Domain.Security;
@@ -40,6 +41,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
     public DbSet<Platform> Platforms => Set<Platform>();
     public DbSet<PlatformActivity> PlatformActivities => Set<PlatformActivity>();
     public DbSet<EstimatedMaterialConsumption> EstimatedMaterialConsumptions => Set<EstimatedMaterialConsumption>();
+    public DbSet<MaterialReceipt> MaterialReceipts => Set<MaterialReceipt>();
+    public DbSet<MaterialReceiptLine> MaterialReceiptLines => Set<MaterialReceiptLine>();
+    public DbSet<MaterialIssue> MaterialIssues => Set<MaterialIssue>();
+    public DbSet<MaterialIssueLine> MaterialIssueLines => Set<MaterialIssueLine>();
+    public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
+    public DbSet<InventoryAdjustmentLine> InventoryAdjustmentLines => Set<InventoryAdjustmentLine>();
+    public DbSet<InventoryTransfer> InventoryTransfers => Set<InventoryTransfer>();
+    public DbSet<InventoryTransferLine> InventoryTransferLines => Set<InventoryTransferLine>();
+    public DbSet<InventoryMovement> InventoryMovements => Set<InventoryMovement>();
+    public DbSet<InventoryBalance> InventoryBalances => Set<InventoryBalance>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -281,6 +292,147 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
         });
+
+        ConfigureInventory(modelBuilder);
+    }
+
+    private static void ConfigureInventory(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<MaterialReceipt>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.InvoiceNumber).HasMaxLength(100);
+            entity.Property(x => x.DeliveryNote).HasMaxLength(100);
+            entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.CancellationReason).HasMaxLength(500);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.ReceiptDate, x.Status });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MaterialReceiptLine>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            ConfigureInventoryLine(entity);
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.MaterialReceipt).WithMany(x => x.Lines).HasForeignKey(x => x.MaterialReceiptId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MaterialIssue>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.CancellationReason).HasMaxLength(500);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.IssueDate, x.Status });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Platform).WithMany().HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.PlatformActivity).WithMany().HasForeignKey(x => x.PlatformActivityId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.OperatorUser).WithMany().HasForeignKey(x => x.OperatorUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<MaterialIssueLine>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            ConfigureInventoryLine(entity);
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.MaterialIssue).WithMany(x => x.Lines).HasForeignKey(x => x.MaterialIssueId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryAdjustment>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.ReasonCode).HasMaxLength(80).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.CancellationReason).HasMaxLength(500);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.AdjustmentDate, x.Status });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryAdjustmentLine>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            ConfigureInventoryLine(entity);
+            entity.Property(x => x.Direction).HasMaxLength(20).IsRequired();
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.InventoryAdjustment).WithMany(x => x.Lines).HasForeignKey(x => x.InventoryAdjustmentId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryTransfer>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
+            entity.Property(x => x.CancellationReason).HasMaxLength(500);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.TransferDate, x.Status });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.FromWarehouse).WithMany().HasForeignKey(x => x.FromWarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ToWarehouse).WithMany().HasForeignKey(x => x.ToWarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryTransferLine>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            ConfigureInventoryLine(entity);
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.InventoryTransfer).WithMany(x => x.Lines).HasForeignKey(x => x.InventoryTransferId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryMovement>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.MovementType).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.SourceDocumentType).HasMaxLength(60).IsRequired();
+            entity.Property(x => x.QuantityInBaseUnit).HasPrecision(18, 4);
+            entity.Property(x => x.QuantityOutBaseUnit).HasPrecision(18, 4);
+            entity.Property(x => x.UnitCost).HasPrecision(18, 4);
+            entity.Property(x => x.TotalCost).HasPrecision(18, 4);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.MaterialId, x.MovementDate });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Project).WithMany().HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Platform).WithMany().HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<InventoryBalance>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.QuantityOnHandBaseUnit).HasPrecision(18, 4);
+            entity.Property(x => x.AverageCost).HasPrecision(18, 4);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.MaterialId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
+        });
+    }
+
+    private static void ConfigureInventoryLine<TEntity>(Microsoft.EntityFrameworkCore.Metadata.Builders.EntityTypeBuilder<TEntity> entity)
+        where TEntity : class
+    {
+        entity.Property("Quantity").HasPrecision(18, 4);
+        entity.Property("QuantityBaseUnit").HasPrecision(18, 4);
+        entity.Property("UnitCost").HasPrecision(18, 4);
+        entity.Property("TotalCost").HasPrecision(18, 4);
+        entity.Property("RowVersion").IsRowVersion();
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)

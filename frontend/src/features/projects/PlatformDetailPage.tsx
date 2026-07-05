@@ -41,6 +41,7 @@ import { LoadingState } from '../../components/LoadingState';
 import { PageHeader } from '../../components/PageHeader';
 import { StatCard } from '../../components/StatCard';
 import type { ApiResponse } from '../../types/api';
+import type { MaterialDeviation } from '../inventory/types';
 import type { CatalogOption, EstimatedMaterialConsumption, Platform, PlatformActivity } from './types';
 import { formatMoney, formatNumber, toDateInput } from './types';
 
@@ -104,6 +105,11 @@ export function PlatformDetailPage() {
   const consumptionsQuery = useQuery({
     queryKey: ['platforms', id, 'estimated-material-consumptions'],
     queryFn: async () => (await http.get<ApiResponse<EstimatedMaterialConsumption[]>>(`/platforms/${id}/estimated-material-consumptions`)).data.data,
+    enabled: !!id
+  });
+  const deviationsQuery = useQuery({
+    queryKey: ['platforms', id, 'material-deviations'],
+    queryFn: async () => (await http.get<ApiResponse<MaterialDeviation[]>>(`/platforms/${id}/material-deviations`)).data.data,
     enabled: !!id
   });
   const activityCatalogQuery = useQuery({
@@ -245,6 +251,7 @@ export function PlatformDetailPage() {
           <Tabs value={tab} onChange={(_, value) => setTab(value)}>
             <Tab label="Actividades" />
             <Tab label="Consumo estimado" />
+            <Tab label="Desviaciones" />
           </Tabs>
           <Button
             startIcon={<AddIcon />}
@@ -253,11 +260,12 @@ export function PlatformDetailPage() {
               if (tab === 0) {
                 setSelectedActivity(null);
                 setActivityOpen(true);
-              } else {
+              } else if (tab === 1) {
                 setSelectedConsumption(null);
                 setConsumptionOpen(true);
               }
             }}
+            disabled={tab === 2}
           >
             Nuevo
           </Button>
@@ -328,6 +336,41 @@ export function PlatformDetailPage() {
                         <Tooltip title="Editar"><IconButton size="small" onClick={() => { setSelectedConsumption(item); setConsumptionOpen(true); }}><EditOutlinedIcon fontSize="small" /></IconButton></Tooltip>
                         <Tooltip title="Desactivar"><IconButton size="small" color="error" onClick={() => deleteConsumptionMutation.mutate(item.id)}><DeleteOutlineIcon fontSize="small" /></IconButton></Tooltip>
                       </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )
+        )}
+
+        {tab === 2 && (
+          deviationsQuery.isLoading ? <LoadingState /> : (deviationsQuery.data ?? []).length === 0 ? (
+            <Box sx={{ p: 2.5 }}><EmptyState message="No hay consumo real ni desviaciones para esta plataforma." /></Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Material</TableCell>
+                    <TableCell>Estimado</TableCell>
+                    <TableCell>Real</TableCell>
+                    <TableCell>Diferencia</TableCell>
+                    <TableCell>Desviación</TableCell>
+                    <TableCell>Costo estimado</TableCell>
+                    <TableCell>Costo real</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(deviationsQuery.data ?? []).map((item) => (
+                    <TableRow key={item.materialId} hover>
+                      <TableCell sx={{ fontWeight: 800 }}>{item.materialCode} · {item.materialDescription}</TableCell>
+                      <TableCell>{formatNumber(item.estimatedQuantityBaseUnit)} {item.baseUnitSymbol}</TableCell>
+                      <TableCell>{formatNumber(item.actualQuantityBaseUnit)} {item.baseUnitSymbol}</TableCell>
+                      <TableCell>{formatNumber(item.differenceQuantityBaseUnit)}</TableCell>
+                      <TableCell>{formatNumber(item.deviationPercent)}%</TableCell>
+                      <TableCell>{formatMoney(item.estimatedTotalCost)}</TableCell>
+                      <TableCell>{formatMoney(item.actualTotalCost)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

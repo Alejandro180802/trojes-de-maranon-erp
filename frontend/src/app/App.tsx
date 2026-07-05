@@ -14,6 +14,12 @@ import { MaterialsPage } from '../features/catalogs/MaterialsPage';
 import { SuppliersPage } from '../features/catalogs/SuppliersPage';
 import { UnitsPage } from '../features/catalogs/UnitsPage';
 import { WarehousesPage } from '../features/catalogs/WarehousesPage';
+import { InventoryAdjustmentsPage } from '../features/inventory/InventoryAdjustmentsPage';
+import { InventoryBalancesPage } from '../features/inventory/InventoryBalancesPage';
+import { InventoryMovementsPage } from '../features/inventory/InventoryMovementsPage';
+import { InventoryTransfersPage } from '../features/inventory/InventoryTransfersPage';
+import { MaterialIssuesPage } from '../features/inventory/MaterialIssuesPage';
+import { MaterialReceiptsPage } from '../features/inventory/MaterialReceiptsPage';
 import { PlatformDetailPage } from '../features/projects/PlatformDetailPage';
 import { PlatformsPage } from '../features/projects/PlatformsPage';
 import { ProjectDetailPage } from '../features/projects/ProjectDetailPage';
@@ -40,6 +46,12 @@ export function App() {
                   <Route path="/projects/:id" element={<ProjectDetailPage />} />
                   <Route path="/platforms" element={<PlatformsPage />} />
                   <Route path="/platforms/:id" element={<PlatformDetailPage />} />
+                  <Route path="/inventory/balances" element={<InventoryBalancesPage />} />
+                  <Route path="/inventory/receipts" element={<MaterialReceiptsPage />} />
+                  <Route path="/inventory/issues" element={<MaterialIssuesPage />} />
+                  <Route path="/inventory/adjustments" element={<InventoryAdjustmentsPage />} />
+                  <Route path="/inventory/transfers" element={<InventoryTransfersPage />} />
+                  <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
                   <Route path="/companies" element={<CompaniesPage />} />
                   <Route path="/users" element={<UsersPage />} />
                   <Route path="/roles" element={<RolesPage />} />
