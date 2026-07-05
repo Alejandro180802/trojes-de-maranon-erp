@@ -4,9 +4,11 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import GroupsIcon from '@mui/icons-material/Groups';
 import HandshakeIcon from '@mui/icons-material/Handshake';
 import Inventory2Icon from '@mui/icons-material/Inventory2';
+import LayersIcon from '@mui/icons-material/Layers';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import MenuIcon from '@mui/icons-material/Menu';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import StraightenIcon from '@mui/icons-material/Straighten';
 import SettingsIcon from '@mui/icons-material/Settings';
 import WarehouseIcon from '@mui/icons-material/Warehouse';
@@ -38,7 +40,9 @@ const navGroups = [
   {
     label: 'Operacion',
     items: [
-      { label: 'Dashboard', path: '/', icon: <DashboardIcon /> }
+      { label: 'Dashboard', path: '/', icon: <DashboardIcon /> },
+      { label: 'Proyectos', path: '/projects', icon: <AssignmentIcon /> },
+      { label: 'Plataformas', path: '/platforms', icon: <LayersIcon /> }
     ]
   },
   {
@@ -91,7 +95,7 @@ export function MainLayout() {
             </Typography>
             <List dense sx={{ mt: 0.75 }}>
               {group.items.map((item) => {
-                const selected = location.pathname === item.path;
+                const selected = item.path === '/' ? location.pathname === item.path : location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
                 return (
                   <ListItemButton
                     key={item.path}

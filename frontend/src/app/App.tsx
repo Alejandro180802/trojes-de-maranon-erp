@@ -14,6 +14,10 @@ import { MaterialsPage } from '../features/catalogs/MaterialsPage';
 import { SuppliersPage } from '../features/catalogs/SuppliersPage';
 import { UnitsPage } from '../features/catalogs/UnitsPage';
 import { WarehousesPage } from '../features/catalogs/WarehousesPage';
+import { PlatformDetailPage } from '../features/projects/PlatformDetailPage';
+import { PlatformsPage } from '../features/projects/PlatformsPage';
+import { ProjectDetailPage } from '../features/projects/ProjectDetailPage';
+import { ProjectsPage } from '../features/projects/ProjectsPage';
 import { MainLayout } from '../layouts/MainLayout';
 import { ProtectedRoute } from '../routes/ProtectedRoute';
 import { theme } from '../theme/theme';
@@ -32,6 +36,10 @@ export function App() {
               <Route element={<ProtectedRoute />}>
                 <Route element={<MainLayout />}>
                   <Route index element={<DashboardPage />} />
+                  <Route path="/projects" element={<ProjectsPage />} />
+                  <Route path="/projects/:id" element={<ProjectDetailPage />} />
+                  <Route path="/platforms" element={<PlatformsPage />} />
+                  <Route path="/platforms/:id" element={<PlatformDetailPage />} />
                   <Route path="/companies" element={<CompaniesPage />} />
                   <Route path="/users" element={<UsersPage />} />
                   <Route path="/roles" element={<RolesPage />} />

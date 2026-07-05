@@ -3,6 +3,7 @@ using TrojesDeMaranon.Domain.Activities;
 using TrojesDeMaranon.Domain.Clients;
 using TrojesDeMaranon.Domain.Companies;
 using TrojesDeMaranon.Domain.Materials;
+using TrojesDeMaranon.Domain.Projects;
 using TrojesDeMaranon.Domain.Security;
 using TrojesDeMaranon.Domain.Suppliers;
 using TrojesDeMaranon.Domain.Units;
@@ -23,6 +24,10 @@ public interface IAppDbContext
     DbSet<MaterialUnitConversion> MaterialUnitConversions { get; }
     DbSet<Warehouse> Warehouses { get; }
     DbSet<ActivityCatalog> ActivityCatalog { get; }
+    DbSet<Project> Projects { get; }
+    DbSet<Platform> Platforms { get; }
+    DbSet<PlatformActivity> PlatformActivities { get; }
+    DbSet<EstimatedMaterialConsumption> EstimatedMaterialConsumptions { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

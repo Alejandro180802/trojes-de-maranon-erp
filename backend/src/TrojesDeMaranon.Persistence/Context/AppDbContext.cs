@@ -7,6 +7,7 @@ using TrojesDeMaranon.Domain.Clients;
 using TrojesDeMaranon.Domain.Common;
 using TrojesDeMaranon.Domain.Companies;
 using TrojesDeMaranon.Domain.Materials;
+using TrojesDeMaranon.Domain.Projects;
 using TrojesDeMaranon.Domain.Security;
 using TrojesDeMaranon.Domain.Suppliers;
 using TrojesDeMaranon.Domain.Units;
@@ -35,6 +36,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
     public DbSet<MaterialUnitConversion> MaterialUnitConversions => Set<MaterialUnitConversion>();
     public DbSet<Warehouse> Warehouses => Set<Warehouse>();
     public DbSet<ActivityCatalog> ActivityCatalog => Set<ActivityCatalog>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<Platform> Platforms => Set<Platform>();
+    public DbSet<PlatformActivity> PlatformActivities => Set<PlatformActivity>();
+    public DbSet<EstimatedMaterialConsumption> EstimatedMaterialConsumptions => Set<EstimatedMaterialConsumption>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -211,6 +216,69 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
             entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Project>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Location).HasMaxLength(250);
+            entity.Property(x => x.BudgetAmount).HasPrecision(18, 4);
+            entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Platform>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
+            entity.Property(x => x.Area).HasPrecision(18, 4);
+            entity.Property(x => x.Volume).HasPrecision(18, 4);
+            entity.Property(x => x.Level).HasMaxLength(80);
+            entity.Property(x => x.Location).HasMaxLength(250);
+            entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.PhysicalProgressPercent).HasPrecision(9, 4);
+            entity.Property(x => x.EstimatedCost).HasPrecision(18, 4);
+            entity.Property(x => x.RealCost).HasPrecision(18, 4);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.ProjectId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Project).WithMany(x => x.Platforms).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ResponsibleUser).WithMany().HasForeignKey(x => x.ResponsibleUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PlatformActivity>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.PlannedQuantity).HasPrecision(18, 4);
+            entity.Property(x => x.ExecutedQuantity).HasPrecision(18, 4);
+            entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.PlatformId, x.ActivityCatalogId });
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Platform).WithMany(x => x.Activities).HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.ActivityCatalog).WithMany().HasForeignKey(x => x.ActivityCatalogId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<EstimatedMaterialConsumption>(entity =>
+        {
+            entity.HasQueryFilter(x => !x.IsDeleted);
+            entity.Property(x => x.EstimatedQuantity).HasPrecision(18, 4);
+            entity.Property(x => x.EstimatedQuantityBaseUnit).HasPrecision(18, 4);
+            entity.Property(x => x.EstimatedUnitCost).HasPrecision(18, 4);
+            entity.Property(x => x.EstimatedTotalCost).HasPrecision(18, 4);
+            entity.Property(x => x.RowVersion).IsRowVersion();
+            entity.HasIndex(x => new { x.CompanyId, x.PlatformId, x.MaterialId, x.UnitId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Platform).WithMany(x => x.EstimatedMaterialConsumptions).HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
         });
     }
