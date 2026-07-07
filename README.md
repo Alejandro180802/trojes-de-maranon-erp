@@ -10,7 +10,7 @@ Backend:
 
 - ASP.NET Core Web API (.NET 9)
 - Clean Architecture
-- Entity Framework Core + SQL Server
+- Entity Framework Core + PostgreSQL (Supabase, via Npgsql)
 - JWT + refresh tokens
 - FluentValidation
 - MediatR registrado
@@ -36,13 +36,22 @@ Frontend:
 - Email: `admin@trojes.demo`
 - Password: `Admin123!`
 
-## Correr SQL Server
+## Base de datos (Supabase / Postgres)
 
-```bash
-docker compose up -d sqlserver
-```
+La base de datos es **Supabase (Postgres)**. La cadena de conexion vive en
+[appsettings.json](backend/src/TrojesDeMaranon.Api/appsettings.json) con un placeholder
+`[YOUR-PASSWORD]`. Para desarrollo local, copia
+[appsettings.Local.example.json](backend/src/TrojesDeMaranon.Api/appsettings.Local.example.json)
+a `appsettings.Local.json` (ignorado por git) y coloca ahi el password real de Supabase.
+Tambien puedes sobreescribir con variables de entorno
+(`ConnectionStrings__DefaultConnection`).
 
-La cadena local esta en [appsettings.json](</Users/alejandroreyesluna/Documents/Trojes de Marañon/backend/src/TrojesDeMaranon.Api/appsettings.json>).
+Alternativa **offline**: `docker compose up -d postgres` levanta un Postgres local; apunta
+la cadena a `Host=localhost;Port=5432;Database=trojes;Username=postgres;Password=postgres`.
+
+> Nota pooler: la cadena usa el pooler de transacciones de Supabase (puerto 6543). Si las
+> migraciones fallan por prepared statements, corre `dotnet ef database update` contra la
+> conexion de sesion (puerto 5432).
 
 ## Backend
 
@@ -84,12 +93,11 @@ VITE_API_URL=http://localhost:5000/api/v1 npm run dev
 
 ## Migraciones
 
-Migraciones disponibles:
+El esquema esta consolidado en una sola migracion de Postgres:
+`Migrations/*_InitialCreate.cs` (generada con Npgsql). Al arrancar, el API aplica
+migraciones automaticamente (`Database.MigrateAsync`) y siembra el usuario admin.
 
-- [20260704162807_InitialCreate.cs](</Users/alejandroreyesluna/Documents/Trojes de Marañon/backend/src/TrojesDeMaranon.Persistence/Migrations/20260704162807_InitialCreate.cs>)
-- [20260704190000_Mvp2Catalogs.cs](</Users/alejandroreyesluna/Documents/Trojes de Marañon/backend/src/TrojesDeMaranon.Persistence/Migrations/20260704190000_Mvp2Catalogs.cs>)
-
-Aplicar migraciones:
+Aplicar migraciones manualmente:
 
 ```bash
 cd backend
@@ -101,6 +109,20 @@ Crear una nueva migracion futura:
 ```bash
 cd backend
 dotnet ef migrations add NombreMigracion --project src/TrojesDeMaranon.Persistence --startup-project src/TrojesDeMaranon.Api
+```
+
+## Despliegue
+
+- **Backend → Google Cloud Run** (contenedor). Ver [backend/README-deploy.md](backend/README-deploy.md)
+  y [backend/Dockerfile](backend/Dockerfile).
+- **Frontend → Firebase Hosting**. Config en [firebase.json](firebase.json) y
+  [.firebaserc](.firebaserc). El API destino se define en
+  [frontend/.env.production](frontend/.env.production) (`VITE_API_URL`).
+
+```bash
+# Frontend
+cd frontend && npm run build
+firebase deploy --only hosting
 ```
 
 ## Endpoints MVP 1

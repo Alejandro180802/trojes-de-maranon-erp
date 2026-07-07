@@ -334,7 +334,7 @@ Domain -> ninguna capa interna
 
 Backend:
 
-- Microsoft.EntityFrameworkCore.SqlServer
+- Npgsql.EntityFrameworkCore.PostgreSQL
 - Microsoft.EntityFrameworkCore.Design
 - Microsoft.AspNetCore.Authentication.JwtBearer
 - FluentValidation
