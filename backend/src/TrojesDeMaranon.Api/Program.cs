@@ -15,6 +15,10 @@ using TrojesDeMaranon.Persistence.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Optional local override (gitignored): put the real Supabase password / secrets here.
+// In production, override via environment variables (e.g. ConnectionStrings__DefaultConnection).
+builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+
 builder.Host.UseSerilog((context, configuration) => configuration
     .ReadFrom.Configuration(context.Configuration)
     .WriteTo.Console());
@@ -28,7 +32,7 @@ builder.Services.AddScoped<ITokenService, JwtTokenService>();
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<LoginRequest>());
 builder.Services.AddValidatorsFromAssemblyContaining<LoginRequestValidator>();
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
 builder.Services

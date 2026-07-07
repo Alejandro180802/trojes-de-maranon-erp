@@ -10,5 +10,4 @@ public abstract class AuditableEntity
     public bool IsDeleted { get; set; }
     public DateTimeOffset? DeletedAt { get; set; }
     public Guid? DeletedByUserId { get; set; }
-    public byte[] RowVersion { get; set; } = [];
 }

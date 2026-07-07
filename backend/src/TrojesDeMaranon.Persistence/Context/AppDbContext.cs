@@ -60,7 +60,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.LegalName).HasMaxLength(250).IsRequired();
             entity.Property(x => x.TaxId).HasMaxLength(50).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => x.TaxId).IsUnique();
         });
 
@@ -69,7 +68,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique();
         });
 
@@ -80,7 +78,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.TimeZone).HasMaxLength(100).IsRequired();
             entity.Property(x => x.MaterialDeviationAlertPercent).HasPrecision(9, 4);
             entity.Property(x => x.DieselAnomalyPercent).HasPrecision(9, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => x.CompanyId).IsUnique();
         });
 
@@ -90,7 +87,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.FullName).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Email).HasMaxLength(256).IsRequired();
             entity.Property(x => x.PasswordHash).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.Email }).IsUnique();
         });
 
@@ -98,7 +94,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
         {
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.Name }).IsUnique();
         });
 
@@ -108,7 +103,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Module).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Action).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Code).HasMaxLength(160).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => x.Code).IsUnique();
         });
 
@@ -126,7 +120,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
         {
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.TokenHash).HasMaxLength(128).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => x.TokenHash).IsUnique();
         });
 
@@ -142,8 +135,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.TaxId).HasMaxLength(50);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<Supplier>(entity =>
@@ -152,8 +144,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.TaxId).HasMaxLength(50);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<Unit>(entity =>
@@ -163,8 +154,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Name).HasMaxLength(100).IsRequired();
             entity.Property(x => x.Symbol).HasMaxLength(20).IsRequired();
             entity.Property(x => x.UnitType).HasMaxLength(50).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<MaterialFamily>(entity =>
@@ -172,8 +162,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<MaterialSubfamily>(entity =>
@@ -181,8 +170,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne(x => x.MaterialFamily).WithMany(x => x.Subfamilies).HasForeignKey(x => x.MaterialFamilyId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -193,8 +181,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Description).HasMaxLength(250).IsRequired();
             entity.Property(x => x.AverageCost).HasPrecision(18, 4);
             entity.Property(x => x.MinimumStock).HasPrecision(18, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne(x => x.MaterialSubfamily).WithMany().HasForeignKey(x => x.MaterialSubfamilyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.MainSupplier).WithMany().HasForeignKey(x => x.MainSupplierId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.BaseUnit).WithMany().HasForeignKey(x => x.BaseUnitId).OnDelete(DeleteBehavior.Restrict);
@@ -204,8 +191,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
         {
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Factor).HasPrecision(18, 8);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.MaterialId, x.FromUnitId, x.ToUnitId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.MaterialId, x.FromUnitId, x.ToUnitId }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne(x => x.Material).WithMany(x => x.UnitConversions).HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.FromUnit).WithMany().HasForeignKey(x => x.FromUnitId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.ToUnit).WithMany().HasForeignKey(x => x.ToUnitId).OnDelete(DeleteBehavior.Restrict);
@@ -216,8 +202,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
         });
 
         modelBuilder.Entity<ActivityCatalog>(entity =>
@@ -225,8 +210,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Code).HasMaxLength(50).IsRequired();
             entity.Property(x => x.Name).HasMaxLength(150).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne(x => x.Unit).WithMany().HasForeignKey(x => x.UnitId).OnDelete(DeleteBehavior.Restrict);
         });
 
@@ -238,8 +222,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.Location).HasMaxLength(250);
             entity.Property(x => x.BudgetAmount).HasPrecision(18, 4);
             entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Client).WithMany().HasForeignKey(x => x.ClientId).OnDelete(DeleteBehavior.Restrict);
         });
@@ -257,8 +240,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.PhysicalProgressPercent).HasPrecision(9, 4);
             entity.Property(x => x.EstimatedCost).HasPrecision(18, 4);
             entity.Property(x => x.RealCost).HasPrecision(18, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.ProjectId, x.Code }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.ProjectId, x.Code }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Project).WithMany(x => x.Platforms).HasForeignKey(x => x.ProjectId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.ResponsibleUser).WithMany().HasForeignKey(x => x.ResponsibleUserId).OnDelete(DeleteBehavior.Restrict);
@@ -270,7 +252,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.PlannedQuantity).HasPrecision(18, 4);
             entity.Property(x => x.ExecutedQuantity).HasPrecision(18, 4);
             entity.Property(x => x.Status).HasMaxLength(50).IsRequired();
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.PlatformId, x.ActivityCatalogId });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Platform).WithMany(x => x.Activities).HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
@@ -285,8 +266,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.EstimatedQuantityBaseUnit).HasPrecision(18, 4);
             entity.Property(x => x.EstimatedUnitCost).HasPrecision(18, 4);
             entity.Property(x => x.EstimatedTotalCost).HasPrecision(18, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.PlatformId, x.MaterialId, x.UnitId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.PlatformId, x.MaterialId, x.UnitId }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Platform).WithMany(x => x.EstimatedMaterialConsumptions).HasForeignKey(x => x.PlatformId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
@@ -305,7 +285,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.DeliveryNote).HasMaxLength(100);
             entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
             entity.Property(x => x.CancellationReason).HasMaxLength(500);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.ReceiptDate, x.Status });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Supplier).WithMany().HasForeignKey(x => x.SupplierId).OnDelete(DeleteBehavior.Restrict);
@@ -328,7 +307,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
             entity.Property(x => x.CancellationReason).HasMaxLength(500);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.IssueDate, x.Status });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
@@ -354,7 +332,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.ReasonCode).HasMaxLength(80).IsRequired();
             entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
             entity.Property(x => x.CancellationReason).HasMaxLength(500);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.AdjustmentDate, x.Status });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
@@ -376,7 +353,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.Status).HasMaxLength(30).IsRequired();
             entity.Property(x => x.CancellationReason).HasMaxLength(500);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.TransferDate, x.Status });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.FromWarehouse).WithMany().HasForeignKey(x => x.FromWarehouseId).OnDelete(DeleteBehavior.Restrict);
@@ -403,7 +379,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.Property(x => x.QuantityOutBaseUnit).HasPrecision(18, 4);
             entity.Property(x => x.UnitCost).HasPrecision(18, 4);
             entity.Property(x => x.TotalCost).HasPrecision(18, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
             entity.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.MaterialId, x.MovementDate });
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
@@ -417,8 +392,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
             entity.HasQueryFilter(x => !x.IsDeleted);
             entity.Property(x => x.QuantityOnHandBaseUnit).HasPrecision(18, 4);
             entity.Property(x => x.AverageCost).HasPrecision(18, 4);
-            entity.Property(x => x.RowVersion).IsRowVersion();
-            entity.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.MaterialId }).IsUnique().HasFilter("[IsDeleted] = 0");
+            entity.HasIndex(x => new { x.CompanyId, x.WarehouseId, x.MaterialId }).IsUnique().HasFilter("\"IsDeleted\" = false");
             entity.HasOne<Company>().WithMany().HasForeignKey(x => x.CompanyId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Warehouse).WithMany().HasForeignKey(x => x.WarehouseId).OnDelete(DeleteBehavior.Restrict);
             entity.HasOne(x => x.Material).WithMany().HasForeignKey(x => x.MaterialId).OnDelete(DeleteBehavior.Restrict);
@@ -432,7 +406,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ICurren
         entity.Property("QuantityBaseUnit").HasPrecision(18, 4);
         entity.Property("UnitCost").HasPrecision(18, 4);
         entity.Property("TotalCost").HasPrecision(18, 4);
-        entity.Property("RowVersion").IsRowVersion();
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
