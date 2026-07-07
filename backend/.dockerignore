@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+appsettings.Local.json
+appsettings.*.Local.json
+Dockerfile
+.dockerignore
+README-deploy.md
