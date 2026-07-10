@@ -111,3 +111,15 @@ retry against the session/direct port (5432).
 - Before declaring backend work done: `dotnet build` the solution. For frontend:
   `npm run build` (`tsc -b && vite build`) — there is no separate lint/typecheck script,
   the build step is both.
+
+## Project tracking
+
+- Monday project: `ERP Trojes de Marañón`; repository label: `trojes-de-maranon-erp`.
+- Tasks: https://fernandokraussfs-team-force.monday.com/boards/18421355594
+- Epics: https://fernandokraussfs-team-force.monday.com/boards/18421355593
+- Bugs: https://fernandokraussfs-team-force.monday.com/boards/18421355595
+- Decisions and scope changes: https://fernandokraussfs-team-force.monday.com/boards/18421356857
+- Before coding, find or create a task with acceptance criteria. Put its `TESQ-##` key in the branch and PR title or body, set `Sync source` to Codex or Claude Code, and record repository, branch/commit, and PR link.
+- GitHub automation moves matching tasks to `Waiting for review` on PR/review activity and `Pending Deploy` after merge. Mark `Done` only after deployment or target-environment verification.
+- Security, multi-company scope, inventory publication/reversal, concurrency, migrations, and destructive changes require an explicit human review owner.
+- If Monday tools are unavailable, preserve the `TESQ-##` in GitHub and hand off the outcome, verification, risks, commit/PR, and pending Monday updates.
