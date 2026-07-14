@@ -1,73 +1,18 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { CssBaseline, ThemeProvider } from '@mui/material';
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { AuthProvider } from '../auth/AuthContext';
-import { LoginPage } from '../auth/LoginPage';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { CompaniesPage } from '../features/companies/CompaniesPage';
-import { UsersPage } from '../features/users/UsersPage';
-import { RolesPage } from '../features/roles/RolesPage';
-import { SettingsPage } from '../features/settings/SettingsPage';
-import { ActivitiesPage } from '../features/catalogs/ActivitiesPage';
-import { ClientsPage } from '../features/catalogs/ClientsPage';
-import { MaterialsPage } from '../features/catalogs/MaterialsPage';
-import { SuppliersPage } from '../features/catalogs/SuppliersPage';
-import { UnitsPage } from '../features/catalogs/UnitsPage';
-import { WarehousesPage } from '../features/catalogs/WarehousesPage';
-import { InventoryAdjustmentsPage } from '../features/inventory/InventoryAdjustmentsPage';
-import { InventoryBalancesPage } from '../features/inventory/InventoryBalancesPage';
-import { InventoryMovementsPage } from '../features/inventory/InventoryMovementsPage';
-import { InventoryTransfersPage } from '../features/inventory/InventoryTransfersPage';
-import { MaterialIssuesPage } from '../features/inventory/MaterialIssuesPage';
-import { MaterialReceiptsPage } from '../features/inventory/MaterialReceiptsPage';
-import { PlatformDetailPage } from '../features/projects/PlatformDetailPage';
-import { PlatformsPage } from '../features/projects/PlatformsPage';
-import { ProjectDetailPage } from '../features/projects/ProjectDetailPage';
-import { ProjectsPage } from '../features/projects/ProjectsPage';
-import { MainLayout } from '../layouts/MainLayout';
-import { ProtectedRoute } from '../routes/ProtectedRoute';
-import { theme } from '../theme/theme';
-
-const queryClient = new QueryClient();
-
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { LoginPage } from '../features/auth/LoginPage';
+import { Shell } from '../features/layout/Shell';
+import { Dashboard } from '../features/dashboard/Dashboard';
+import { OperationsPage } from '../features/operations/OperationsPage';
+import { ControlPage } from '../features/control/ControlPage';
+import { EquipmentPage } from '../features/equipment/EquipmentPage';
+import { AdminPage } from '../features/admin/AdminPage';
+const protectedRoutes = [
+  ['/', <Dashboard />], ['/control-obra', <ControlPage />], ['/reporte-diario', <OperationsPage kind="Reporte diario" />], ['/inventario', <OperationsPage kind="Inventario" />],
+  ['/salidas', <OperationsPage kind="Salidas de material" />], ['/maquinaria', <EquipmentPage />], ['/diesel', <OperationsPage kind="Diésel" />], ['/alertas', <OperationsPage kind="Alertas" />], ['/administracion', <AdminPage />],
+];
 export function App() {
-  return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/login" element={<LoginPage />} />
-              <Route element={<ProtectedRoute />}>
-                <Route element={<MainLayout />}>
-                  <Route index element={<DashboardPage />} />
-                  <Route path="/projects" element={<ProjectsPage />} />
-                  <Route path="/projects/:id" element={<ProjectDetailPage />} />
-                  <Route path="/platforms" element={<PlatformsPage />} />
-                  <Route path="/platforms/:id" element={<PlatformDetailPage />} />
-                  <Route path="/inventory/balances" element={<InventoryBalancesPage />} />
-                  <Route path="/inventory/receipts" element={<MaterialReceiptsPage />} />
-                  <Route path="/inventory/issues" element={<MaterialIssuesPage />} />
-                  <Route path="/inventory/adjustments" element={<InventoryAdjustmentsPage />} />
-                  <Route path="/inventory/transfers" element={<InventoryTransfersPage />} />
-                  <Route path="/inventory/movements" element={<InventoryMovementsPage />} />
-                  <Route path="/companies" element={<CompaniesPage />} />
-                  <Route path="/users" element={<UsersPage />} />
-                  <Route path="/roles" element={<RolesPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/catalogs/clients" element={<ClientsPage />} />
-                  <Route path="/catalogs/suppliers" element={<SuppliersPage />} />
-                  <Route path="/catalogs/units" element={<UnitsPage />} />
-                  <Route path="/catalogs/materials" element={<MaterialsPage />} />
-                  <Route path="/catalogs/warehouses" element={<WarehousesPage />} />
-                  <Route path="/catalogs/activities" element={<ActivitiesPage />} />
-                </Route>
-              </Route>
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
-      </QueryClientProvider>
-    </ThemeProvider>
-  );
+  const session = localStorage.getItem('tdm_access_token');
+  const user = JSON.parse(localStorage.getItem('tdm_user') ?? 'null') as { role?: string } | null;
+  if (!session) return <Routes><Route path="/login" element={<LoginPage />} /><Route path="*" element={<Navigate to="/login" replace />} /></Routes>;
+  return <Routes><Route element={<Shell />}>{protectedRoutes.filter(([path]) => path !== '/administracion' || user?.role === 'ADMIN').map(([path, element]) => <Route key={path as string} path={path as string} element={element as JSX.Element} />)}</Route><Route path="*" element={<Navigate to="/" replace />} /></Routes>;
 }

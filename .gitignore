@@ -1,35 +1,22 @@
 # macOS
 .DS_Store
 
-# .NET
-bin/
-obj/
-*.user
-*.suo
-.vs/
-.idea/
-
-# Logs
-logs/
-*.log
-
-# Frontend
+# Node
 node_modules/
 dist/
-build/
+coverage/
 .vite/
+*.tsbuildinfo
+backend/uploads/
 
-# Environment
+# Environment and secrets
 .env
-.env.local
-.env.development.local
-.env.production.local
+.env.*
+!.env.example
+!.env.development
+!.env.production
 
-# Local database
-*.mdf
-*.ldf
-
-# Secrets
-appsettings.Production.json
-appsettings.Local.json
-secrets.json
+# Local tooling
+.idea/
+logs/
+*.log

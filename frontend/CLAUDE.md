@@ -1,1 +1,3 @@
-See [AGENTS.md](./AGENTS.md) for frontend stack, structure, and conventions.
+# Frontend
+
+Lee `AGENTS.md`. La variable `VITE_API_URL` apunta al API NestJS.

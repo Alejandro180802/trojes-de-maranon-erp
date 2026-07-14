@@ -1,0 +1,346 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  APPROVER
+  SUPERVISOR
+  WAREHOUSE
+  EQUIPMENT
+  VIEWER
+}
+enum DocumentStatus {
+  DRAFT
+  PUBLISHED
+  CANCELLED
+}
+enum WarehouseKind {
+  CONTAINER
+  OPEN_AREA
+  FUEL_TANK
+  PLATFORM
+}
+enum MovementType {
+  RECEIPT
+  ISSUE
+  TRANSFER_IN
+  TRANSFER_OUT
+  ADJUSTMENT
+  COUNT
+  FUEL_ISSUE
+  REVERSAL
+}
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  PAUSED
+  FINISHED
+}
+enum MachineStatus {
+  AVAILABLE
+  WORKING
+  MAINTENANCE
+  BROKEN
+  OFF_SITE
+}
+enum AlertKind {
+  LOW_STOCK
+  VARIANCE
+  MAINTENANCE
+  FUEL_ANOMALY
+  PLATFORM_DELAY
+  DAILY_REPORT_PENDING
+}
+
+model User {
+  id String @id @default(uuid())
+  email String @unique
+  name String
+  passwordHash String
+  role UserRole @default(SUPERVISOR)
+  active Boolean @default(true)
+  refreshTokens RefreshToken[]
+  auditLogs AuditLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model PermissionGrant {
+  id String @id @default(uuid())
+  role UserRole
+  permission String
+  allowed Boolean @default(true)
+  updatedAt DateTime @updatedAt
+  @@unique([role, permission])
+  @@index([permission, allowed])
+}
+model RefreshToken {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  userId String
+  expiresAt DateTime
+  revokedAt DateTime?
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  createdAt DateTime @default(now())
+}
+model AuditLog {
+  id String @id @default(uuid())
+  action String
+  entity String
+  entityId String
+  metadata Json?
+  userId String?
+  user User? @relation(fields:[userId], references:[id], onDelete:SetNull)
+  createdAt DateTime @default(now())
+  @@index([entity, entityId])
+}
+model Material {
+  id String @id @default(uuid())
+  code String @unique
+  name String
+  unit String
+  minimumStock Decimal @default(0) @db.Decimal(14,3)
+  active Boolean @default(true)
+  locations InventoryBalance[]
+  movements InventoryMovement[]
+  estimates MaterialEstimate[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Warehouse {
+  id String @id @default(uuid())
+  name String
+  kind WarehouseKind
+  active Boolean @default(true)
+  platformId String? @unique
+  platform Platform? @relation(fields:[platformId], references:[id], onDelete:Restrict)
+  balances InventoryBalance[]
+  movements InventoryMovement[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Project {
+  id String @id @default(uuid())
+  name String
+  location String?
+  status ProjectStatus @default(PENDING)
+  varianceThreshold Decimal @default(15) @db.Decimal(5,2)
+  platforms Platform[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Platform {
+  id String @id @default(uuid())
+  projectId String
+  name String
+  location String?
+  status ProjectStatus @default(PENDING)
+  progress Decimal @default(0) @db.Decimal(5,2)
+  project Project @relation(fields:[projectId], references:[id], onDelete:Cascade)
+  activities Activity[]
+  estimates MaterialEstimate[]
+  reports DailyReport[]
+  movements InventoryMovement[]
+  fuelLogs FuelLog[]
+  warehouse Warehouse?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model Activity {
+  id String @id @default(uuid())
+  platformId String
+  name String
+  status ProjectStatus @default(PENDING)
+  progress Decimal @default(0) @db.Decimal(5,2)
+  squareMeters Decimal? @db.Decimal(14,3)
+  cubicMeters Decimal? @db.Decimal(14,3)
+  trips Int @default(0)
+  notes String?
+  pendingItems String[] @default([])
+  photoPaths String[] @default([])
+  platform Platform @relation(fields:[platformId], references:[id], onDelete:Cascade)
+  estimates MaterialEstimate[]
+  movements InventoryMovement[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model MaterialEstimate {
+  id String @id @default(uuid())
+  platformId String
+  activityId String?
+  materialId String
+  quantity Decimal @db.Decimal(14,3)
+  threshold Decimal? @db.Decimal(5,2)
+  platform Platform @relation(fields:[platformId], references:[id], onDelete:Cascade)
+  activity Activity? @relation(fields:[activityId], references:[id], onDelete:SetNull)
+  material Material @relation(fields:[materialId], references:[id], onDelete:Restrict)
+  @@unique([platformId, activityId, materialId])
+}
+model InventoryBalance {
+  id String @id @default(uuid())
+  materialId String
+  warehouseId String
+  quantity Decimal @default(0) @db.Decimal(14,3)
+  material Material @relation(fields:[materialId], references:[id], onDelete:Restrict)
+  warehouse Warehouse @relation(fields:[warehouseId], references:[id], onDelete:Restrict)
+  @@unique([materialId, warehouseId])
+}
+model InventoryMovement {
+  id String @id @default(uuid())
+  type MovementType
+  status DocumentStatus @default(DRAFT)
+  materialId String
+  warehouseId String
+  destinationWarehouseId String?
+  platformId String?
+  activityId String?
+  dailyReportId String?
+  quantity Decimal @db.Decimal(14,3)
+  supplier String?
+  remision String?
+  observation String?
+  responsible String?
+  photoPath String?
+  approvalRequired Boolean @default(false)
+  approvedById String?
+  reversedMovementId String? @unique
+  material Material @relation(fields:[materialId], references:[id], onDelete:Restrict)
+  warehouse Warehouse @relation(fields:[warehouseId], references:[id], onDelete:Restrict)
+  platform Platform? @relation(fields:[platformId], references:[id], onDelete:Restrict)
+  activity Activity? @relation(fields:[activityId], references:[id], onDelete:Restrict)
+  dailyReport DailyReport? @relation(fields:[dailyReportId], references:[id], onDelete:SetNull)
+  occurredAt DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([materialId, warehouseId, status])
+  @@index([platformId, createdAt])
+  @@index([activityId, materialId, status])
+  @@index([destinationWarehouseId])
+  @@index([dailyReportId])
+  @@index([occurredAt, status])
+}
+model Machine {
+  id String @id @default(uuid())
+  code String @unique
+  name String
+  meterKind String @default("HOROMETER")
+  currentMeter Decimal @default(0) @db.Decimal(14,2)
+  status MachineStatus @default(AVAILABLE)
+  fuelTarget Decimal? @db.Decimal(14,3)
+  assignments MachineAssignment[]
+  fuelLogs FuelLog[]
+  maintenancePlans MaintenancePlan[]
+  repairs Repair[]
+  maintenanceRecords MaintenanceRecord[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+model MachineAssignment {
+  id String @id @default(uuid())
+  machineId String
+  platformId String
+  workDate DateTime @db.Date
+  operator String?
+  meterStart Decimal @db.Decimal(14,2)
+  meterEnd Decimal @db.Decimal(14,2)
+  hoursWorked Decimal @db.Decimal(8,2)
+  dailyReportId String?
+  machine Machine @relation(fields:[machineId], references:[id], onDelete:Cascade)
+  dailyReport DailyReport? @relation(fields:[dailyReportId], references:[id], onDelete:SetNull)
+  createdAt DateTime @default(now())
+  @@index([machineId, workDate])
+  @@index([platformId, workDate])
+  @@index([dailyReportId])
+}
+model FuelLog {
+  id String @id @default(uuid())
+  machineId String
+  sourceWarehouseId String
+  platformId String?
+  movementId String? @unique
+  dailyReportId String?
+  liters Decimal @db.Decimal(14,3)
+  meterReading Decimal? @db.Decimal(14,2)
+  operator String
+  loadedAt DateTime @default(now())
+  machine Machine @relation(fields:[machineId], references:[id], onDelete:Restrict)
+  platform Platform? @relation(fields:[platformId], references:[id], onDelete:Restrict)
+  dailyReport DailyReport? @relation(fields:[dailyReportId], references:[id], onDelete:SetNull)
+  createdAt DateTime @default(now())
+  @@index([machineId, loadedAt])
+  @@index([platformId, loadedAt])
+  @@index([dailyReportId])
+}
+model MaintenancePlan {
+  id String @id @default(uuid())
+  machineId String
+  intervalHours Decimal @db.Decimal(14,2)
+  nextDueMeter Decimal @db.Decimal(14,2)
+  warningHours Decimal @default(50) @db.Decimal(14,2)
+  active Boolean @default(true)
+  machine Machine @relation(fields:[machineId], references:[id], onDelete:Cascade)
+}
+model MaintenanceRecord {
+  id String @id @default(uuid())
+  machineId String
+  maintenancePlanId String?
+  performedAt DateTime
+  meterReading Decimal @db.Decimal(14,2)
+  operator String
+  notes String?
+  nextDueMeter Decimal? @db.Decimal(14,2)
+  machine Machine @relation(fields:[machineId], references:[id], onDelete:Cascade)
+  createdAt DateTime @default(now())
+  @@index([machineId, performedAt])
+}
+model Repair {
+  id String @id @default(uuid())
+  machineId String
+  meterReading Decimal @db.Decimal(14,2)
+  repairedAt DateTime
+  operator String?
+  downtimeHours Decimal @default(0) @db.Decimal(10,2)
+  notes String?
+  machine Machine @relation(fields:[machineId], references:[id], onDelete:Cascade)
+}
+model DailyReport {
+  id String @id @default(uuid())
+  platformId String
+  reportDate DateTime @db.Date
+  status DocumentStatus @default(DRAFT)
+  progress Decimal? @db.Decimal(5,2)
+  weather String?
+  incidents String[] @default([])
+  personnel Json?
+  materials Json?
+  machinery Json?
+  fuelLiters Decimal? @db.Decimal(14,3)
+  overtimeHours Decimal @default(0) @db.Decimal(10,2)
+  pendingItems String[] @default([])
+  photoPaths String[] @default([])
+  notes String?
+  approvedById String?
+  platform Platform @relation(fields:[platformId], references:[id], onDelete:Restrict)
+  movements InventoryMovement[]
+  assignments MachineAssignment[]
+  fuelLogs FuelLog[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@unique([platformId, reportDate])
+}
+model Alert {
+  id String @id @default(uuid())
+  kind AlertKind
+  title String
+  message String
+  sourceKey String? @unique
+  resolvedAt DateTime?
+  resolvedById String?
+  createdAt DateTime @default(now())
+  @@index([kind, resolvedAt])
+}

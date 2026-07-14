@@ -1,1 +1,3 @@
-See [AGENTS.md](./AGENTS.md) for backend stack, structure, and conventions.
+# Backend
+
+Lee `AGENTS.md`. Contratos REST: `/api/v1`; Swagger: `/docs`.
