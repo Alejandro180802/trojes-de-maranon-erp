@@ -19,5 +19,6 @@ export class ReportDto { @IsString() platformId!: string; @IsString() reportDate
 export class CreateUserDto { @IsEmail() email!: string; @IsString() name!: string; @IsString() @MinLength(8) password!: string; @IsEnum(UserRole) role!: UserRole; }
 export class UpdateUserDto { @IsOptional() @IsString() name?: string; @IsOptional() @IsString() @MinLength(8) password?: string; @IsOptional() @IsEnum(UserRole) role?: UserRole; @IsOptional() @IsBoolean() active?: boolean; }
 export class SetActiveDto { @IsBoolean() active!: boolean; }
+export class MachineStatusDto { @IsEnum(MachineStatus) status!: MachineStatus; }
 export class StatusDto { @IsEnum(DocumentStatus) status!: DocumentStatus; }
 export class PermissionGrantDto { @IsEnum(UserRole) role!: UserRole; @IsString() @IsIn(['INVENTORY_CAPTURE', 'INVENTORY_APPROVE', 'INVENTORY_CANCEL', 'REPORT_CAPTURE', 'REPORT_PUBLISH', 'REPORT_APPROVE', 'EQUIPMENT_CAPTURE']) permission!: string; @IsBoolean() allowed!: boolean; }

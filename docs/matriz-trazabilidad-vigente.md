@@ -7,11 +7,12 @@ conexión y validación en Supabase, Firebase y Google Cloud se ejecutarán desp
 |---|---|
 | Captura rápida de inventario y diésel | Formularios móviles, catálogos y validación inmediata |
 | Proyectos, plataformas y actividades | Control de obra con porcentaje, m², m³, viajes, observaciones, pendientes y fotos |
+| Vista al abrir una plataforma | Resumen con avance, tareas finalizadas, viajes, diésel, movimientos y pendientes (`GET /platforms/:id/summary`) |
 | Entradas documentadas | Proveedor, remisión y foto obligatorios; recepción directa a ubicación de plataforma |
 | Salidas trazables | Material, origen, plataforma, actividad, responsable, fecha y aprobación extraordinaria |
-| Existencias confiables | Ledger transaccional para entrada, salida, transferencia, conteo, ajuste y reverso |
+| Existencias confiables | Ledger transaccional para entrada, salida, transferencia, conteo, ajuste y reverso; el efecto aplicado (`appliedDelta`) garantiza reversos exactos y sin negativos |
 | Estimado contra real | Presupuesto por plataforma/actividad/material, umbral configurable y alertas de desviación |
-| Maquinaria y horómetros | Unidades, asignaciones diarias a plataforma, operador, lectura y horas trabajadas |
+| Maquinaria y horómetros | Unidades, asignaciones diarias a plataforma, operador, lectura y horas trabajadas; cinco estados editables (disponible, trabajando, mantenimiento, descompuesta, fuera de obra) |
 | Diésel | Salida automática del tanque, plataforma, unidad, operador y rendimiento L/h o L/km |
 | Mantenimiento y reparaciones | Plan, aviso a 50 h, mantenimiento ejecutado, próxima lectura, reparación y tiempo detenido |
 | Reporte diario completo | Avance, clima, incidencias, personal, horas extra, pendientes, fotos y operación ligada por fecha/plataforma |
@@ -19,3 +20,6 @@ conexión y validación en Supabase, Firebase y Google Cloud se ejecutarán desp
 | Alertas | Stock, desviación, mantenimiento, diésel, atraso y reportes; se pueden marcar atendidas |
 | Filtros, tablas y exportación | Búsqueda transversal en tablas operativas y CSV de inventario/reportes |
 | Gráficas y KPIs | Serie operativa, estimado-real, avance, eficiencia de diésel y mantenimiento |
+
+Las anotaciones de arquitectura, reglas de negocio y decisiones viven en
+`docs/anotaciones.md`.

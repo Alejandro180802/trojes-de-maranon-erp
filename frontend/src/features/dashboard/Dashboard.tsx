@@ -4,6 +4,8 @@ import { Alert, Box, Button, CircularProgress, LinearProgress, Paper, Stack, Tab
 import AddTaskOutlinedIcon from '@mui/icons-material/AddTaskOutlined';
 import Inventory2OutlinedIcon from '@mui/icons-material/Inventory2Outlined';
 import LocalGasStationOutlinedIcon from '@mui/icons-material/LocalGasStationOutlined';
+import OutputOutlinedIcon from '@mui/icons-material/OutputOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
 import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 import { useNavigate } from 'react-router-dom';
 import { http } from '../../api/http';
@@ -23,7 +25,13 @@ export function Dashboard() {
   const data = response?.summary;
   const lowStock = data?.lowStock ?? []; const fuelLiters = data?.fuelLitersToday ?? '—'; const pendingReports = data?.pendingReports ?? 0; const progress = Number(data?.platformProgress ?? 0);
   return <Stack spacing={2.5}>
-    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={2}><Box><Typography variant="h3" sx={{ fontSize: { xs: 36, sm: 48 } }}>Buen día, supervisor</Typography><Typography color="text.secondary">El pulso de la obra, listo para actuar.</Typography></Box><Button variant="contained" color="secondary" size="large" startIcon={<AddTaskOutlinedIcon />} onClick={() => navigate('/reporte-diario')}>Crear reporte diario</Button></Stack>
+    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} gap={2}><Box><Typography variant="h3" sx={{ fontSize: { xs: 36, sm: 48 } }}>Buen día, {(JSON.parse(localStorage.getItem('tdm_user') ?? 'null') as { name?: string } | null)?.name?.split(' ')[0] ?? 'supervisor'}</Typography><Typography color="text.secondary">El pulso de la obra, listo para actuar.</Typography></Box><Button variant="contained" color="secondary" size="large" startIcon={<AddTaskOutlinedIcon />} onClick={() => navigate('/reporte-diario?nuevo=1')}>Crear reporte diario</Button></Stack>
+    <Stack direction="row" flexWrap="wrap" gap={1}>
+      <Button variant="outlined" startIcon={<Inventory2OutlinedIcon />} onClick={() => navigate('/inventario?nuevo=1&tipo=RECEIPT')}>Registrar entrada</Button>
+      <Button variant="outlined" startIcon={<OutputOutlinedIcon />} onClick={() => navigate('/salidas?nuevo=1')}>Nueva salida</Button>
+      <Button variant="outlined" startIcon={<LocalGasStationOutlinedIcon />} onClick={() => navigate('/diesel?nuevo=1')}>Cargar diésel</Button>
+      <Button variant="outlined" startIcon={<FactCheckOutlinedIcon />} onClick={() => navigate('/inventario?nuevo=1&tipo=COUNT')}>Conteo físico</Button>
+    </Stack>
     {isError ? <Alert severity="warning">No se pudo sincronizar el tablero. Revisa la conexión con el API.</Alert> : null}
     <Box className="page-grid">
       <Paper sx={{ p: 2.3 }}><SectionTitle title="Inventario" link="Ver todo" onClick={() => navigate('/inventario')} /><Typography variant="body2" color="secondary.main" fontWeight={700} sx={{ mb: 1.4 }}>Stock bajo</Typography><Table size="small" className="data-table"><TableHead><TableRow><TableCell>Material</TableCell><TableCell>Ubicación</TableCell><TableCell align="right">Actual</TableCell><TableCell align="right">Mínimo</TableCell></TableRow></TableHead><TableBody>{lowStock.map((item) => <TableRow key={item.id}><TableCell>{item.material.name}</TableCell><TableCell>{item.warehouse.name}</TableCell><TableCell align="right">{item.quantity} {item.material.unit}</TableCell><TableCell align="right" sx={{ color: 'secondary.main', fontWeight: 700 }}>{item.material.minimumStock}</TableCell></TableRow>)}{lowStock.length === 0 ? <TableRow><TableCell colSpan={4} align="center" sx={{ color: 'text.secondary' }}>Sin existencias bajo mínimo</TableCell></TableRow> : null}</TableBody></Table></Paper>

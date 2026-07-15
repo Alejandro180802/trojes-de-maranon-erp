@@ -1,11 +1,13 @@
-import { Children, cloneElement, isValidElement, useMemo, useState } from 'react';
+import { Children, cloneElement, isValidElement, useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, FormControlLabel, MenuItem, Paper, Stack, Table, TableBody, TableCell, TableHead, TablePagination, TableRow, TextField, Typography, useMediaQuery } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import PublishOutlinedIcon from '@mui/icons-material/PublishOutlined';
 import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { downloadCsv, http, uploadLocalEvidence } from '../../api/http';
+import { useNotify } from '../../app/notifications';
+import { ConfirmDialog, type ConfirmState } from '../../components/ConfirmDialog';
 
 type Item = { id: string; name: string };
 type Material = Item & { code: string; unit: string };
@@ -30,65 +32,87 @@ const exportsByKind: Record<string, { path: string; filename: string }> = { Inve
 
 function dateLabel(value: string) { return new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium' }).format(new Date(value)); }
 function statusLabel(value: string) { return ({ DRAFT: 'Borrador', PUBLISHED: 'Publicado', CANCELLED: 'Cancelado' }[value] ?? value); }
+function apiMessageOf(reason: unknown) { const apiMessage = (reason as { response?: { data?: { message?: string | string[] } } }).response?.data?.message; return Array.isArray(apiMessage) ? apiMessage.join('. ') : apiMessage ?? 'No fue posible completar la operación. Verifica los datos y tus permisos.'; }
+const publishableKinds = ['Reporte diario', 'Inventario', 'Salidas de material'];
 function StatusChip({ value }: { value: string }) { return <Chip size="small" label={statusLabel(value)} color={value === 'PUBLISHED' ? 'success' : value === 'CANCELLED' ? 'default' : 'warning'} variant={value === 'PUBLISHED' ? 'filled' : 'outlined'} />; }
+function FormSection({ title }: { title: string }) { return <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: 1, lineHeight: 1, mt: 1, mb: -1 }}>{title}</Typography>; }
 
 export function OperationsPage({ kind }: { kind: string }) {
   const navigate = useNavigate();
+  const notify = useNotify();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fullScreen = useMediaQuery('(max-width:600px)');
   const operation = operations[kind];
+  const publishable = publishableKinds.includes(kind);
   const [open, setOpen] = useState(false);
   const [state, setState] = useState<Record<string, string>>({ reportDate: today, type: 'RECEIPT', currentMeter: '0' });
   const [evidence, setEvidence] = useState<File | null>(null);
-  const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState('');
+  const [confirm, setConfirm] = useState<ConfirmState>(null);
+  const [confirmBusy, setConfirmBusy] = useState(false);
   const catalogs = useCatalogs();
   const records = useRecords(kind);
   const platforms = useMemo<Platform[]>(() => catalogs.platforms.data ?? [], [catalogs.platforms.data]);
   const setValue = (name: string, value: string) => setState((current) => ({ ...current, [name]: value }));
-  const save = async () => {
+  useEffect(() => {
+    if (!searchParams.get('nuevo') || !operation.endpoint) return;
+    const tipo = searchParams.get('tipo');
+    if (tipo) setState((current) => ({ ...current, type: tipo }));
+    setOpen(true); setSearchParams({}, { replace: true });
+  }, [searchParams, setSearchParams, operation.endpoint]);
+  const closeDialog = () => { setOpen(false); setEvidence(null); setError(''); };
+  const save = async (alsoPublish = false) => {
     if (!operation.endpoint) { navigate('/'); return; }
     const validation = validateOperation(kind, state, evidence);
     if (validation) { setError(validation); return; }
-    setSaving(true); setError(''); setMessage('');
+    setSaving(true); setError('');
     try {
       const evidencePath = evidence ? await uploadLocalEvidence(evidence) : undefined;
       const payload = payloadFor(kind, state, evidencePath);
-      await http.post(operation.endpoint, payload);
-      setMessage(kind === 'Diésel' ? 'Carga de diésel registrada y descontada del tanque.' : 'Borrador registrado. Publícalo cuando esté completo.');
-      setOpen(false); setEvidence(null); records.refetch();
-    } catch (reason) {
-      const apiMessage = (reason as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
-      setError(Array.isArray(apiMessage) ? apiMessage.join('. ') : apiMessage ?? 'No fue posible guardar. Verifica los datos y tus permisos.');
-    } finally { setSaving(false); }
+      const { data: created } = await http.post<{ id: string }>(operation.endpoint, payload);
+      let published = false;
+      if (alsoPublish && created?.id) {
+        try { await http.post(`${kind === 'Reporte diario' ? '/daily-reports' : '/inventory/movements'}/${created.id}/publish`); published = true; }
+        catch (reason) { notify(`El borrador se guardó, pero no se publicó: ${apiMessageOf(reason)}`, 'warning'); }
+      }
+      if (kind === 'Diésel') notify('Carga de diésel registrada y descontada del tanque.');
+      else if (published) notify('Documento guardado y publicado.');
+      else if (!alsoPublish) notify('Borrador registrado. Publícalo cuando esté completo.');
+      closeDialog(); records.refetch();
+    } catch (reason) { setError(apiMessageOf(reason)); }
+    finally { setSaving(false); }
   };
-  const documentAction = async (id: string, action: 'publish' | 'cancel' | 'approve') => {
-    setError(''); setMessage('');
-    try {
-      const base = kind === 'Reporte diario' ? '/daily-reports' : '/inventory/movements';
-      await http.post(`${base}/${id}/${action}`);
-      setMessage(action === 'cancel' ? 'Documento cancelado y revertido.' : action === 'approve' ? 'Reporte aprobado.' : 'Documento publicado.');
-      records.refetch();
-    } catch (reason) {
-      const apiMessage = (reason as { response?: { data?: { message?: string | string[] } } }).response?.data?.message;
-      setError(Array.isArray(apiMessage) ? apiMessage.join('. ') : apiMessage ?? 'La operación no pudo completarse con tus permisos actuales.');
-    }
+  const documentAction = (id: string, action: 'publish' | 'cancel' | 'approve') => {
+    const report = kind === 'Reporte diario';
+    const copy = action === 'cancel' ? { title: 'Revertir documento', message: 'Se creará un reverso publicado y las existencias regresarán a su estado anterior. La operación queda auditada.', confirmLabel: 'Revertir', destructive: true, success: 'Documento cancelado y revertido.' }
+      : action === 'approve' ? { title: 'Aprobar reporte', message: 'Confirma que revisaste el reporte diario y su evidencia.', confirmLabel: 'Aprobar', success: 'Reporte aprobado.' }
+      : report ? { title: 'Publicar reporte', message: 'El reporte quedará publicado; editarlo después requerirá autorización.', confirmLabel: 'Publicar', success: 'Reporte publicado.' }
+      : { title: 'Publicar movimiento', message: 'Se actualizarán las existencias del inventario. Podrás revertirlo con trazabilidad.', confirmLabel: 'Publicar', success: 'Documento publicado.' };
+    setConfirm({ ...copy, onConfirm: async () => {
+      setConfirmBusy(true);
+      try { await http.post(`${report ? '/daily-reports' : '/inventory/movements'}/${id}/${action}`); notify(copy.success); records.refetch(); }
+      catch (reason) { notify(apiMessageOf(reason), 'error'); }
+      finally { setConfirmBusy(false); setConfirm(null); }
+    } });
   };
-  const resolveAlert = async (id: string) => { setError(''); try { await http.post(`/alerts/${id}/resolve`); setMessage('Alerta atendida.'); records.refetch(); } catch { setError('No fue posible atender la alerta.'); } };
+  const resolveAlert = async (id: string) => { try { await http.post(`/alerts/${id}/resolve`); notify('Alerta atendida.'); records.refetch(); } catch { notify('No fue posible atender la alerta.', 'error'); } };
   return <Stack spacing={2.5}>
     <Box><Typography variant="h3" sx={{ fontSize: { xs: 34, sm: 46 } }}>{kind}</Typography><Typography color="text.secondary" sx={{ maxWidth: 650, mt: 1 }}>{operation.description}</Typography></Box>
     <Paper sx={{ p: { xs: 2.5, sm: 3 }, display: 'flex', gap: 2, justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, flexDirection: { xs: 'column', sm: 'row' }, bgcolor: '#fbfdfb' }}>
       <Box><Typography variant="h6">Operación de campo</Typography><Typography color="text.secondary" variant="body2">Los documentos quedan en borrador hasta su publicación; el servidor conserva la auditoría y valida permisos.</Typography></Box>
       <Stack direction="row" spacing={1} flexWrap="wrap">{exportsByKind[kind] ? <Button variant="outlined" onClick={() => downloadCsv(exportsByKind[kind].path, exportsByKind[kind].filename)}>Exportar CSV</Button> : null}<Button variant="contained" color="secondary" startIcon={<AddIcon />} onClick={() => operation.endpoint ? setOpen(true) : navigate('/')}>{operation.action}</Button></Stack>
     </Paper>
-    {message && <Alert severity="success">{message}</Alert>}{error && <Alert severity="error">{error}</Alert>}
     {kind !== 'Alertas' && <TextField label="Filtrar información" placeholder="Material, ubicación, plataforma, operador…" value={filter} onChange={(event) => setFilter(event.target.value)} sx={{ maxWidth: 520 }} />}
     <Records kind={kind} records={records.data} loading={records.isLoading} onAction={documentAction} onResolveAlert={resolveAlert} filter={filter} />
     <Button sx={{ alignSelf: 'flex-start' }} onClick={() => navigate('/')}>Volver al inicio</Button>
-    <Dialog open={open} onClose={() => setOpen(false)} fullWidth maxWidth="sm"><DialogTitle>{operation.action}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+    <Dialog open={open} onClose={() => { if (!saving) closeDialog(); }} fullWidth maxWidth="sm" fullScreen={fullScreen}><DialogTitle>{operation.action}</DialogTitle><DialogContent><Stack spacing={2} sx={{ pt: 1 }}>
+      {error && <Alert severity="error" role="alert">{error}</Alert>}
       {catalogs.isLoading ? <Stack alignItems="center" sx={{ py: 3 }}><CircularProgress size={28} /></Stack> : <OperationFields kind={kind} state={state} setValue={setValue} materials={catalogs.materials.data ?? []} warehouses={catalogs.warehouses.data ?? []} machines={catalogs.machines.data ?? []} platforms={platforms} />}
       {(kind === 'Reporte diario' || kind === 'Inventario') && <EvidenceInput file={evidence} setFile={setEvidence} required={kind === 'Inventario' && state.type === 'RECEIPT'} />}
-    </Stack></DialogContent><DialogActions><Button onClick={() => { setOpen(false); setEvidence(null); }}>Cancelar</Button><Button variant="contained" color="secondary" disabled={saving || catalogs.isLoading} onClick={save}>{saving ? 'Guardando…' : 'Guardar borrador'}</Button></DialogActions></Dialog>
+    </Stack></DialogContent><DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: .5 }}><Button onClick={closeDialog} disabled={saving}>Cancelar</Button>{publishable && <Button disabled={saving || catalogs.isLoading} onClick={() => save(false)}>Guardar borrador</Button>}<Button variant="contained" color="secondary" disabled={saving || catalogs.isLoading} onClick={() => save(publishable)}>{saving ? 'Guardando…' : kind === 'Diésel' ? 'Registrar carga' : publishable ? 'Guardar y publicar' : 'Guardar'}</Button></DialogActions></Dialog>
+    <ConfirmDialog state={confirm} busy={confirmBusy} onClose={() => setConfirm(null)} />
   </Stack>;
 }
 
@@ -107,7 +131,7 @@ function useRecords(kind: string) {
 function OptionField({ label, value, onChange, options, helperText, optional = false }: { label: string; value: string; onChange: (value: string) => void; options: { value: string; label: string }[]; helperText?: string; optional?: boolean }) { return <TextField select label={label} value={value} onChange={(event) => onChange(event.target.value)} helperText={helperText} required={!optional}><MenuItem value="" disabled={!optional}>{optional ? 'Sin asignar' : 'Selecciona una opción'}</MenuItem>{options.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}</TextField>; }
 function OperationFields({ kind, state, setValue, materials, warehouses, machines, platforms }: { kind: string; state: Record<string, string>; setValue: (name: string, value: string) => void; materials: Material[]; warehouses: Warehouse[]; machines: Machine[]; platforms: Platform[] }) {
   const materialsOptions = materials.map((item) => ({ value: item.id, label: `${item.name} (${item.unit})` })); const warehouseOptions = warehouses.map((item) => ({ value: item.id, label: `${item.name} · ${item.kind}` }));
-  if (kind === 'Reporte diario') return <><OptionField label="Plataforma" value={state.platformId ?? ''} onChange={(value) => setValue('platformId', value)} options={platforms.map((item) => ({ value: item.id, label: `${item.project.name} · ${item.name}` }))} /><TextField label="Fecha" type="date" value={state.reportDate ?? today} onChange={(event) => setValue('reportDate', event.target.value)} InputLabelProps={{ shrink: true }} required /><TextField label="Avance del día (%)" type="number" value={state.progress ?? ''} onChange={(event) => setValue('progress', event.target.value)} inputProps={{ min: 0, max: 100 }} /><TextField label="Clima" value={state.weather ?? ''} onChange={(event) => setValue('weather', event.target.value)} /><TextField label="Personal (descripción o cantidad)" value={state.personnel ?? ''} onChange={(event) => setValue('personnel', event.target.value)} /><TextField label="Horas extra" type="number" value={state.overtimeHours ?? ''} onChange={(event) => setValue('overtimeHours', event.target.value)} inputProps={{ min: 0 }} /><TextField label="Materiales utilizados" value={state.materials ?? ''} onChange={(event) => setValue('materials', event.target.value)} helperText="Separa los materiales con comas." /><TextField label="Maquinaria utilizada" value={state.machinery ?? ''} onChange={(event) => setValue('machinery', event.target.value)} helperText="Separa las unidades con comas." /><TextField label="Diésel utilizado (L)" type="number" value={state.fuelLiters ?? ''} onChange={(event) => setValue('fuelLiters', event.target.value)} inputProps={{ min: 0, step: .001 }} /><TextField label="Incidencias" value={state.incidents ?? ''} onChange={(event) => setValue('incidents', event.target.value)} helperText="Separa las incidencias con comas." /><TextField label="Pendientes" value={state.pendingItems ?? ''} onChange={(event) => setValue('pendingItems', event.target.value)} helperText="Separa los pendientes con comas." /><TextField label="Observaciones" value={state.notes ?? ''} onChange={(event) => setValue('notes', event.target.value)} multiline minRows={3} /></>;
+  if (kind === 'Reporte diario') return <><OptionField label="Plataforma" value={state.platformId ?? ''} onChange={(value) => setValue('platformId', value)} options={platforms.map((item) => ({ value: item.id, label: `${item.project.name} · ${item.name}` }))} /><TextField label="Fecha" type="date" value={state.reportDate ?? today} onChange={(event) => setValue('reportDate', event.target.value)} InputLabelProps={{ shrink: true }} required /><FormSection title="Avance y clima" /><TextField label="Avance del día (%)" type="number" value={state.progress ?? ''} onChange={(event) => setValue('progress', event.target.value)} inputProps={{ min: 0, max: 100 }} /><TextField label="Clima" value={state.weather ?? ''} onChange={(event) => setValue('weather', event.target.value)} /><FormSection title="Personal" /><TextField label="Personal (descripción o cantidad)" value={state.personnel ?? ''} onChange={(event) => setValue('personnel', event.target.value)} /><TextField label="Horas extra" type="number" value={state.overtimeHours ?? ''} onChange={(event) => setValue('overtimeHours', event.target.value)} inputProps={{ min: 0 }} /><FormSection title="Operación del día" /><TextField label="Materiales utilizados" value={state.materials ?? ''} onChange={(event) => setValue('materials', event.target.value)} helperText="Separa los materiales con comas." /><TextField label="Maquinaria utilizada" value={state.machinery ?? ''} onChange={(event) => setValue('machinery', event.target.value)} helperText="Separa las unidades con comas." /><TextField label="Diésel utilizado (L)" type="number" value={state.fuelLiters ?? ''} onChange={(event) => setValue('fuelLiters', event.target.value)} inputProps={{ min: 0, step: .001 }} /><FormSection title="Seguimiento" /><TextField label="Incidencias" value={state.incidents ?? ''} onChange={(event) => setValue('incidents', event.target.value)} helperText="Lluvia, falta de material, máquina descompuesta… separa con comas." /><TextField label="Pendientes" value={state.pendingItems ?? ''} onChange={(event) => setValue('pendingItems', event.target.value)} helperText="Separa los pendientes con comas." /><TextField label="Observaciones" value={state.notes ?? ''} onChange={(event) => setValue('notes', event.target.value)} multiline minRows={3} /></>;
   if (kind === 'Inventario') { const receipt = state.type === 'RECEIPT'; return <><OptionField label="Tipo" value={state.type ?? 'RECEIPT'} onChange={(value) => setValue('type', value)} options={[{ value: 'RECEIPT', label: 'Entrada' }, { value: 'COUNT', label: 'Conteo físico' }, { value: 'ADJUSTMENT', label: 'Ajuste' }, { value: 'TRANSFER_OUT', label: 'Transferencia' }]} /><TextField label="Fecha del movimiento" type="date" value={state.occurredAt ?? today} onChange={(event) => setValue('occurredAt', event.target.value)} InputLabelProps={{ shrink: true }} required /><OptionField label="Material" value={state.materialId ?? ''} onChange={(value) => setValue('materialId', value)} options={materialsOptions} /><OptionField label="Ubicación" value={state.warehouseId ?? ''} onChange={(value) => setValue('warehouseId', value)} options={warehouseOptions} helperText="Selecciona una ubicación tipo plataforma para recibir tierra o tepetate directamente en obra." />{state.type === 'TRANSFER_OUT' && <OptionField label="Ubicación destino" value={state.destinationWarehouseId ?? ''} onChange={(value) => setValue('destinationWarehouseId', value)} options={warehouseOptions.filter((item) => item.value !== state.warehouseId)} />}<TextField label={state.type === 'COUNT' ? 'Existencia física' : 'Cantidad'} type="number" value={state.quantity ?? ''} onChange={(event) => setValue('quantity', event.target.value)} inputProps={{ min: state.type === 'COUNT' ? 0 : 0.001, step: 0.001 }} required />{state.type === 'ADJUSTMENT' ? <OptionField label="Sentido del ajuste" value={state.adjustmentDirection ?? 'INCREASE'} onChange={(value) => setValue('adjustmentDirection', value)} options={[{ value: 'INCREASE', label: 'Aumentar existencia' }, { value: 'DECREASE', label: 'Disminuir existencia' }]} /> : null}{receipt ? <><TextField label="Proveedor" value={state.supplier ?? ''} onChange={(event) => setValue('supplier', event.target.value)} required /><TextField label="Remisión" value={state.remision ?? ''} onChange={(event) => setValue('remision', event.target.value)} required /></> : null}</> }
   if (kind === 'Salidas de material') { const platform = platforms.find((item) => item.id === state.platformId); return <><TextField label="Fecha de salida" type="date" value={state.occurredAt ?? today} onChange={(event) => setValue('occurredAt', event.target.value)} InputLabelProps={{ shrink: true }} required /><OptionField label="Material" value={state.materialId ?? ''} onChange={(value) => setValue('materialId', value)} options={materialsOptions} /><OptionField label="Ubicación de salida" value={state.warehouseId ?? ''} onChange={(value) => setValue('warehouseId', value)} options={warehouseOptions} /><OptionField label="Plataforma" value={state.platformId ?? ''} onChange={(value) => { setValue('platformId', value); setValue('activityId', ''); }} options={platforms.map((item) => ({ value: item.id, label: `${item.project.name} · ${item.name}` }))} /><OptionField label="Actividad" value={state.activityId ?? ''} onChange={(value) => setValue('activityId', value)} options={(platform?.activities ?? []).map((item) => ({ value: item.id, label: item.name }))} helperText={platform ? 'Relaciona el consumo con el estimado de la actividad.' : 'Selecciona primero una plataforma.'} /><TextField label="Responsable" value={state.responsible ?? ''} onChange={(event) => setValue('responsible', event.target.value)} required /><TextField label="Cantidad" type="number" value={state.quantity ?? ''} onChange={(event) => setValue('quantity', event.target.value)} inputProps={{ min: 0.001, step: 0.001 }} required /><FormControlLabel control={<Checkbox checked={state.approvalRequired === 'true'} onChange={(event) => setValue('approvalRequired', String(event.target.checked))} />} label="Solicitar autorización extraordinaria si no hay existencia" /><TextField label="Motivo u observaciones" value={state.observation ?? ''} onChange={(event) => setValue('observation', event.target.value)} multiline minRows={2} /></> }
   if (kind === 'Maquinaria') return <><TextField label="Número económico" value={state.code ?? ''} onChange={(event) => setValue('code', event.target.value)} required /><TextField label="Nombre o descripción" value={state.name ?? ''} onChange={(event) => setValue('name', event.target.value)} required /><TextField label="Horómetro actual" type="number" value={state.currentMeter ?? '0'} onChange={(event) => setValue('currentMeter', event.target.value)} inputProps={{ min: 0 }} /></>;

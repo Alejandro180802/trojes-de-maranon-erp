@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AlertKind, DocumentStatus, MovementType, Prisma, UserRole } from '@prisma/client';
+import { AlertKind, DocumentStatus, MachineStatus, MovementType, Prisma, UserRole } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivityDto, AssignmentDto, CreateUserDto, EstimateDto, FuelDto, MachineDto, MaintenanceDto, MaintenanceRecordDto, MaterialDto, MovementDto, PermissionGrantDto, PlatformDto, ProjectDto, RepairDto, ReportDto, UpdateActivityDto, UpdateUserDto, WarehouseDto } from './dto';
@@ -8,7 +8,7 @@ const published = DocumentStatus.PUBLISHED;
 const permissionDefaults: Record<string, UserRole[]> = {
   INVENTORY_CAPTURE: [UserRole.ADMIN, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.EQUIPMENT],
   INVENTORY_APPROVE: [UserRole.ADMIN, UserRole.APPROVER],
-  INVENTORY_CANCEL: [UserRole.ADMIN, UserRole.APPROVER],
+  INVENTORY_CANCEL: [UserRole.ADMIN, UserRole.APPROVER, UserRole.SUPERVISOR],
   REPORT_CAPTURE: [UserRole.ADMIN, UserRole.APPROVER, UserRole.SUPERVISOR, UserRole.WAREHOUSE, UserRole.EQUIPMENT],
   REPORT_PUBLISH: [UserRole.ADMIN, UserRole.APPROVER, UserRole.SUPERVISOR],
   REPORT_APPROVE: [UserRole.ADMIN, UserRole.APPROVER],
@@ -27,6 +27,22 @@ const permissionDefaults: Record<string, UserRole[]> = {
   async updateUser(id: string, dto: UpdateUserDto, user: UserContext) { const { password, ...data } = dto; const updated = await this.prisma.user.update({ where: { id }, data: { ...data, ...(password ? { passwordHash: await bcrypt.hash(password, 12) } : {}) }, select: { id: true, name: true, email: true, role: true, active: true } }); await this.audit(user, 'UPDATE', 'User', id); return updated; }
   projects() { return this.prisma.project.findMany({ include: { platforms: true }, orderBy: { name: 'asc' } }); }
   platforms() { return this.prisma.platform.findMany({ include: { project: true, activities: true }, orderBy: { name: 'asc' } }); }
+  async platformSummary(id: string) {
+    const platform = await this.prisma.platform.findUnique({ where: { id }, include: { project: true, activities: true } });
+    if (!platform) throw new NotFoundException('Plataforma no encontrada');
+    const [issues, fuel, lastReport] = await Promise.all([
+      this.prisma.inventoryMovement.aggregate({ _count: true, where: { platformId: id, status: published, type: { in: [MovementType.ISSUE, MovementType.RECEIPT] } } }),
+      this.prisma.fuelLog.aggregate({ _sum: { liters: true }, where: { platformId: id } }),
+      this.prisma.dailyReport.findFirst({ where: { platformId: id }, orderBy: { reportDate: 'desc' }, select: { reportDate: true, status: true, pendingItems: true } }),
+    ]);
+    const pendingItems = [...platform.activities.flatMap((activity) => activity.pendingItems), ...(lastReport?.pendingItems ?? [])];
+    return {
+      id: platform.id, name: platform.name, project: platform.project.name, status: platform.status, progress: platform.progress,
+      totalActivities: platform.activities.length, completedActivities: platform.activities.filter((activity) => activity.progress.greaterThanOrEqualTo(100)).length,
+      trips: platform.activities.reduce((total, activity) => total + activity.trips, 0), materialMovements: issues._count,
+      dieselLiters: fuel._sum.liters ?? new Prisma.Decimal(0), pendingItems, lastReportDate: lastReport?.reportDate ?? null, lastReportStatus: lastReport?.status ?? null,
+    };
+  }
   async createProject(dto: ProjectDto, user: UserContext) { return this.withAudit(user, 'CREATE', 'Project', this.prisma.project.create({ data: dto })); }
   async createPlatform(dto: PlatformDto, user: UserContext) {
     const platform = await this.prisma.platform.create({ data: dto });
@@ -91,7 +107,7 @@ const permissionDefaults: Record<string, UserRole[]> = {
       const delta = movement.type === MovementType.COUNT ? movement.quantity.minus(current?.quantity ?? 0) : this.isOutbound(movement.type) ? movement.quantity.negated() : movement.quantity;
       await this.changeBalance(tx, movement.materialId, movement.warehouseId, delta);
       if (movement.destinationWarehouseId) await this.changeBalance(tx, movement.materialId, movement.destinationWarehouseId, movement.quantity);
-      const updated = await tx.inventoryMovement.update({ where: { id }, data: { status: published, approvedById: !hasStock ? user.id : null } });
+      const updated = await tx.inventoryMovement.update({ where: { id }, data: { status: published, approvedById: !hasStock ? user.id : null, appliedDelta: delta } });
       return updated;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (result) => { await this.audit(user, 'PUBLISH', 'InventoryMovement', result.id); return result; });
   }
@@ -99,26 +115,38 @@ const permissionDefaults: Record<string, UserRole[]> = {
     const movement = await this.prisma.inventoryMovement.findUnique({ where: { id } });
     if (!movement) throw new NotFoundException('Movimiento no encontrado');
     if (movement.status !== published) throw new BadRequestException('Sólo se cancelan documentos publicados');
+    if (movement.type === MovementType.COUNT && !movement.appliedDelta) throw new BadRequestException('Este conteo no registró su efecto aplicado; corrígelo con un nuevo conteo');
     await this.assertPermission(user, 'INVENTORY_CANCEL');
     return this.prisma.$transaction(async (tx) => {
-      const reverseQuantity = movement.quantity.negated();
-      await this.changeBalance(tx, movement.materialId, movement.warehouseId, this.isOutbound(movement.type) ? movement.quantity : reverseQuantity);
-      if (movement.destinationWarehouseId) await this.changeBalance(tx, movement.materialId, movement.destinationWarehouseId, reverseQuantity);
-      const reverse = await tx.inventoryMovement.create({ data: { type: MovementType.REVERSAL, status: published, materialId: movement.materialId, warehouseId: movement.warehouseId, destinationWarehouseId: movement.destinationWarehouseId, platformId: movement.platformId, activityId: movement.activityId, dailyReportId: movement.dailyReportId, quantity: movement.quantity, responsible: movement.responsible, supplier: movement.supplier, remision: movement.remision, photoPath: movement.photoPath, occurredAt: new Date(), observation: `Reverso de ${movement.id}`, reversedMovementId: movement.id } });
+      const originReversal = (movement.appliedDelta ?? (this.isOutbound(movement.type) ? movement.quantity.negated() : movement.quantity)).negated();
+      if (originReversal.isNegative()) await this.requireStock(tx, movement.materialId, movement.warehouseId, originReversal.abs(), 'Existencia insuficiente para revertir en origen; registra un ajuste o conteo antes de cancelar');
+      if (movement.destinationWarehouseId) await this.requireStock(tx, movement.materialId, movement.destinationWarehouseId, movement.quantity, 'Existencia insuficiente para revertir en destino; registra un ajuste o conteo antes de cancelar');
+      await this.changeBalance(tx, movement.materialId, movement.warehouseId, originReversal);
+      if (movement.destinationWarehouseId) await this.changeBalance(tx, movement.materialId, movement.destinationWarehouseId, movement.quantity.negated());
+      const reverse = await tx.inventoryMovement.create({ data: { type: MovementType.REVERSAL, status: published, materialId: movement.materialId, warehouseId: movement.warehouseId, destinationWarehouseId: movement.destinationWarehouseId, platformId: movement.platformId, activityId: movement.activityId, dailyReportId: movement.dailyReportId, quantity: movement.quantity, appliedDelta: originReversal, responsible: movement.responsible, supplier: movement.supplier, remision: movement.remision, photoPath: movement.photoPath, occurredAt: new Date(), observation: `Reverso de ${movement.id}`, reversedMovementId: movement.id } });
       await tx.inventoryMovement.update({ where: { id }, data: { status: DocumentStatus.CANCELLED } });
       return reverse;
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then(async (result) => { await this.audit(user, 'CANCEL', 'InventoryMovement', id); return result; });
   }
   machines() { return this.prisma.machine.findMany({ include: { maintenancePlans: true }, orderBy: { name: 'asc' } }); }
   async createMachine(dto: MachineDto, user: UserContext) { await this.assertPermission(user, 'EQUIPMENT_CAPTURE'); return this.withAudit(user, 'CREATE', 'Machine', this.prisma.machine.create({ data: dto })); }
+  async setMachineStatus(id: string, status: MachineStatus, user: UserContext) {
+    await this.assertPermission(user, 'EQUIPMENT_CAPTURE');
+    const machine = await this.prisma.machine.update({ where: { id }, data: { status } });
+    await this.audit(user, 'STATUS', 'Machine', id);
+    return machine;
+  }
   async assignMachine(dto: AssignmentDto, user: UserContext) {
     await this.assertPermission(user, 'EQUIPMENT_CAPTURE');
     if (dto.meterEnd < dto.meterStart) throw new BadRequestException('El horómetro final no puede ser menor al inicial');
+    const machine = await this.prisma.machine.findUnique({ where: { id: dto.machineId } });
+    if (!machine) throw new NotFoundException('Unidad no encontrada');
+    if (machine.status === 'BROKEN' || machine.status === 'OFF_SITE') throw new BadRequestException('La unidad está descompuesta o fuera de obra; actualiza su estado antes de asignarla');
     const workDate = new Date(dto.workDate);
     const dailyReportId = await this.findDailyReport(dto.platformId, workDate);
     const assignment = await this.prisma.$transaction(async (tx) => {
       const result = await tx.machineAssignment.create({ data: { ...dto, workDate, dailyReportId } });
-      await tx.machine.update({ where: { id: dto.machineId }, data: { currentMeter: dto.meterEnd, status: 'WORKING' } });
+      await tx.machine.update({ where: { id: dto.machineId }, data: { ...(machine.currentMeter.lessThan(dto.meterEnd) ? { currentMeter: dto.meterEnd } : {}), status: 'WORKING' } });
       return result;
     });
     await this.audit(user, 'ASSIGN', 'MachineAssignment', assignment.id);
@@ -129,7 +157,7 @@ const permissionDefaults: Record<string, UserRole[]> = {
     await this.assertPermission(user, 'EQUIPMENT_CAPTURE');
     const loadedAt = dto.loadedAt ? new Date(dto.loadedAt) : new Date();
     const movement = await this.createMovement({ type: MovementType.FUEL_ISSUE, materialId: await this.dieselMaterialId(), warehouseId: dto.sourceWarehouseId, platformId: dto.platformId, quantity: dto.liters, approvalRequired: false, occurredAt: loadedAt.toISOString(), responsible: dto.operator, observation: `Carga a maquinaria ${dto.machineId}` }, user);
-    await this.publishMovement(movement.id, user);
+    try { await this.publishMovement(movement.id, user); } catch (error) { await this.prisma.inventoryMovement.update({ where: { id: movement.id }, data: { status: DocumentStatus.CANCELLED, observation: 'Carga de diésel rechazada al publicar' } }); throw error; }
     const dailyReportId = await this.findDailyReport(dto.platformId, loadedAt);
     const fuelData = { machineId: dto.machineId, sourceWarehouseId: dto.sourceWarehouseId, platformId: dto.platformId, liters: dto.liters, meterReading: dto.meterReading, operator: dto.operator };
     const log = await this.prisma.fuelLog.create({ data: { ...fuelData, loadedAt, movementId: movement.id, dailyReportId } });
@@ -137,7 +165,7 @@ const permissionDefaults: Record<string, UserRole[]> = {
     return log;
   }
   async fuelLogs() {
-    const logs = await this.prisma.fuelLog.findMany({ include: { machine: true, platform: { include: { project: true } } }, orderBy: { loadedAt: 'asc' }, take: 250 });
+    const logs = (await this.prisma.fuelLog.findMany({ include: { machine: true, platform: { include: { project: true } } }, orderBy: { loadedAt: 'desc' }, take: 250 })).reverse();
     const previous = new Map<string, Prisma.Decimal>();
     return logs.map((log) => { const prior = previous.get(log.machineId); if (log.meterReading) previous.set(log.machineId, log.meterReading); const distance = prior && log.meterReading?.greaterThan(prior) ? log.meterReading.minus(prior) : null; const efficiency = distance ? log.liters.dividedBy(distance) : null; return { ...log, efficiency, efficiencyUnit: log.machine.meterKind === 'ODOMETER' ? 'L/km' : 'L/h' }; }).reverse();
   }
@@ -335,9 +363,9 @@ const permissionDefaults: Record<string, UserRole[]> = {
   }
   private dayBounds(date: Date) { const start = new Date(date); start.setUTCHours(0, 0, 0, 0); const end = new Date(start); end.setUTCDate(end.getUTCDate() + 1); return { start, end }; }
   private isOutbound(type: MovementType) { return type === MovementType.ISSUE || type === MovementType.TRANSFER_OUT || type === MovementType.FUEL_ISSUE; }
-  private async requireStock(tx: Prisma.TransactionClient, materialId: string, warehouseId: string, amount: Prisma.Decimal) {
+  private async requireStock(tx: Prisma.TransactionClient, materialId: string, warehouseId: string, amount: Prisma.Decimal, message = 'Existencia insuficiente') {
     const current = await tx.inventoryBalance.findUnique({ where: { materialId_warehouseId: { materialId, warehouseId } } });
-    if (!current || current.quantity.lessThan(amount)) throw new BadRequestException('Existencia insuficiente');
+    if (!current || current.quantity.lessThan(amount)) throw new BadRequestException(message);
   }
   private changeBalance(tx: Prisma.TransactionClient, materialId: string, warehouseId: string, delta: Prisma.Decimal) {
     return tx.inventoryBalance.upsert({ where: { materialId_warehouseId: { materialId, warehouseId } }, update: { quantity: { increment: delta } }, create: { materialId, warehouseId, quantity: delta } });

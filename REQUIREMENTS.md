@@ -45,4 +45,5 @@ publicar un reporte diario con evidencia y operar sólo dentro de sus permisos. 
 impide inventario negativo no aprobado y conserva trazabilidad de cada cambio.
 
 La trazabilidad entre la encuesta y cada módulo se documenta en
-`docs/matriz-trazabilidad-vigente.md`.
+`docs/matriz-trazabilidad-vigente.md`; las anotaciones de arquitectura, reglas y
+decisiones en `docs/anotaciones.md`.

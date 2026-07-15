@@ -201,6 +201,7 @@ model InventoryMovement {
   activityId String?
   dailyReportId String?
   quantity Decimal @db.Decimal(14,3)
+  appliedDelta Decimal? @db.Decimal(14,3)
   supplier String?
   remision String?
   observation String?

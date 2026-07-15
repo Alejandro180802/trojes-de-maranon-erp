@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Header, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import { Roles } from '../auth/roles.decorator';
-import { ActivityDto, AssignmentDto, CreateUserDto, EstimateDto, FuelDto, MachineDto, MaintenanceDto, MaintenanceRecordDto, MaterialDto, MovementDto, PermissionGrantDto, PlatformDto, ProjectDto, RepairDto, ReportDto, SetActiveDto, UpdateActivityDto, UpdateUserDto, WarehouseDto } from './dto';
+import { ActivityDto, AssignmentDto, CreateUserDto, EstimateDto, FuelDto, MachineDto, MachineStatusDto, MaintenanceDto, MaintenanceRecordDto, MaterialDto, MovementDto, PermissionGrantDto, PlatformDto, ProjectDto, RepairDto, ReportDto, SetActiveDto, UpdateActivityDto, UpdateUserDto, WarehouseDto } from './dto';
 import { OperationsService } from './operations.service';
 type RequestUser = { user: { id: string; role: UserRole } };
 @Controller() export class OperationsController {
@@ -28,6 +28,7 @@ type RequestUser = { user: { id: string; role: UserRole } };
   @Post('platforms') @Roles(UserRole.ADMIN, UserRole.APPROVER) platform(@Body() dto: PlatformDto, @Req() req: RequestUser) { return this.service.createPlatform(dto, req.user); }
   @Get('platforms') platforms() { return this.service.platforms(); }
   @Get('platforms/:id/activities') activities(@Param('id') id: string) { return this.service.activities(id); }
+  @Get('platforms/:id/summary') platformSummary(@Param('id') id: string) { return this.service.platformSummary(id); }
   @Post('activities') activity(@Body() dto: ActivityDto, @Req() req: RequestUser) { return this.service.createActivity(dto, req.user); }
   @Patch('activities/:id') activityUpdate(@Param('id') id: string, @Body() dto: UpdateActivityDto, @Req() req: RequestUser) { return this.service.updateActivity(id, dto, req.user); }
   @Post('estimates') @Roles(UserRole.ADMIN, UserRole.APPROVER) estimate(@Body() dto: EstimateDto, @Req() req: RequestUser) { return this.service.upsertEstimate(dto, req.user); }
@@ -40,6 +41,7 @@ type RequestUser = { user: { id: string; role: UserRole } };
   @Post('inventory/movements/:id/cancel') cancelMovement(@Param('id') id: string, @Req() req: RequestUser) { return this.service.cancelMovement(id, req.user); }
   @Get('machines') machines() { return this.service.machines(); }
   @Post('machines') machine(@Body() dto: MachineDto, @Req() req: RequestUser) { return this.service.createMachine(dto, req.user); }
+  @Patch('machines/:id/status') machineStatus(@Param('id') id: string, @Body() dto: MachineStatusDto, @Req() req: RequestUser) { return this.service.setMachineStatus(id, dto.status, req.user); }
   @Post('machine-assignments') assignment(@Body() dto: AssignmentDto, @Req() req: RequestUser) { return this.service.assignMachine(dto, req.user); }
   @Get('machine-assignments') assignments() { return this.service.assignments(); }
   @Post('fuel-logs') fuel(@Body() dto: FuelDto, @Req() req: RequestUser) { return this.service.fuel(dto, req.user); }
